@@ -67,7 +67,7 @@ poetry run python eval.py model=set_matching
 ```
 
 ### Settings and Hyperparameters
-The parameters for each model can be found in [set_transformer.yaml](conf/set_transformer.yaml) and [set_matching.yaml](conf/models/set_matching.yaml).
+The parameters for each model can be found in [set_transformer.yaml](conf/model/set_transformer.yaml) and [set_matching.yaml](conf/model/set_matching.yaml).
 Also, see [config.yaml](conf/config.yaml) for parameters common to training and testing.
 
 
