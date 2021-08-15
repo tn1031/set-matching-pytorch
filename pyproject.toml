@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "set_matching"
+version = "0.1.0"
+description = ""
+authors = ["tn1031"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+numpy = "^1.21.1"
+Pillow = "^8.3.1"
+hydra-core = "^1.1.0"
+scikit-learn = "^0.24.2"
+tensorboardX = "^2.4"
+torch = "^1.9.0"
+pytorch-ignite = "^0.4.6"
+torchvision = {url = "https://download.pytorch.org/whl/cu111/torchvision-0.10.0%2Bcu111-cp37-cp37m-linux_x86_64.whl", platform = "linux"}
+tqdm = "^4.62.0"
+
+[tool.poetry.dev-dependencies]
+black = "^21.7b0"
+isort = "^5.9.3"
+flake8 = "^3.9.2"
+autoflake = "^1.4"
+pytest = "^6.2.4"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

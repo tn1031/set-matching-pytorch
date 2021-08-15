@@ -1,0 +1,18 @@
+defaults:
+  - model: set_transformer
+
+dataset:
+  data_dir: ../data
+  batch_size: 32
+  max_set_size: 8
+  n_mix: 1  # for set matching
+
+train:
+  epochs: 10
+logdir: /tmp/pytorch_logs
+checkpoint_interval: 2
+resume: null
+
+eval:
+  modelckpt: null
+  max_cand_set_size: 2
