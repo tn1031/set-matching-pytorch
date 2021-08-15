@@ -4,7 +4,7 @@ import pathlib
 import numpy as np
 import pytest
 
-from set_matching.datasets.split_dataset import SplitDataset, FIMBsDataset
+from set_matching.datasets.split_dataset import SplitDataset, FINBsDataset
 
 
 def test_split_dataset(data_dir):
@@ -48,7 +48,7 @@ def test_fimbs_dataset(data_dir):
     data = json.load(open(pathlib.Path(data_dir) / "iqon_test_finbs.json"))
     max_set_size_query, max_set_size_answer = 8, 2
 
-    dataset = FIMBsDataset(
+    dataset = FINBsDataset(
         data, root, cnn_arch="resnet18", max_set_size_query=max_set_size_query, max_set_size_answer=max_set_size_answer
     )
 

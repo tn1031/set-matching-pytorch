@@ -31,7 +31,7 @@ def get_fimbs_loader(
     root = pathlib.Path(data_dir)
     test = json.load(open(root / fname))
 
-    test_dataset = FIMBsDataset(
+    test_dataset = FINBsDataset(
         test, root, cnn_arch=cnn_arch, max_set_size_query=max_set_size_query, max_set_size_answer=max_set_size_answer
     )
     test_loader = torch.utils.data.DataLoader(
@@ -85,7 +85,7 @@ class SplitDataset(torch.utils.data.Dataset):
         return x_images, x_mask, y_images, y_mask
 
 
-class FIMBsDataset(torch.utils.data.Dataset):
+class FINBsDataset(torch.utils.data.Dataset):
     def __init__(self, sets, root, cnn_arch, max_set_size_query, max_set_size_answer):
         self.sets = sets
         self.root = root
