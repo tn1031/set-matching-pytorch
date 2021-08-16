@@ -25,7 +25,7 @@ Go [here](https://anonymity2019.wixsite.com/gp-bpr) and download the IQON3000 da
 ### Creating label files
 After unzipping, run the following commands to create label files for training and testing.
 
-```bash
+```
 poetry run python make_iqon_dataset.py \
 --data_dir       <The path to the directory where the unzipped IQON3000 is located.> \
 --min_set_size   <Minimum value of set size. Outfits that are smaller than this will not be used.> \
@@ -34,7 +34,7 @@ poetry run python make_iqon_dataset.py \
 --max_set_size_x <Query set size (FINBs).> \
 --max_set_size_y <Candidate set size (FINBs).> \
 --train_size     <Ratio of data for training.> \
---test_size     <Ratio of data for testin. The rest are used for validation.>
+--test_size      <Ratio of data for testin. The rest are used for validation.>
 ```
 
 Four files will be created under the directory specified by `data_dir`.
@@ -53,7 +53,7 @@ It provides two models, SetTransformer and SetMatching, where SetTransformer is 
 poetry run python train.py model=set_transformer
 
 # Testing (FITB)
-poetry run python eval.py model=set_transformer
+poetry run python eval.py model=set_transformer eval.modelckpt=<path to the set transformer model checkpoint>
 ```
 
 ### SetMatching
@@ -63,7 +63,7 @@ poetry run python eval.py model=set_transformer
 poetry run python train.py model=set_matching
 
 # Testing (FINBs)
-poetry run python eval.py model=set_matching
+poetry run python eval.py model=set_matching eval.modelckpt=<path to the set matching model checkpoint>
 ```
 
 ### Settings and Hyperparameters
