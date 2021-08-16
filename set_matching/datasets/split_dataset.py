@@ -25,7 +25,7 @@ def get_loader(fname, data_dir, n_mix, batch_size, cnn_arch, max_set_size=8, is_
     return loader
 
 
-def get_fimbs_loader(
+def get_finbs_loader(
     fname, data_dir, batch_size, cnn_arch, max_set_size_query=8, max_set_size_answer=2, num_workers=None
 ):
     root = pathlib.Path(data_dir)

@@ -40,7 +40,7 @@ def test_split_dataset(data_dir):
         assert np.all(y_mask == np.array([True] * max_set_size))
 
 
-def test_fimbs_dataset(data_dir):
+def test_finbs_dataset(data_dir):
     if data_dir is None:
         pytest.skip("there is no testdata.")
 

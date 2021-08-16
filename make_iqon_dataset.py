@@ -57,7 +57,7 @@ def split_itemsets(sets, indices):
     return x_items, y_items
 
 
-def make_fimbs_problems(test_sets, n_candidates, n_mix, max_set_size_x=8, max_set_size_y=2):
+def make_finbs_problems(test_sets, n_candidates, n_mix, max_set_size_x=8, max_set_size_y=2):
     assert n_candidates > 1
 
     test = []
@@ -127,9 +127,9 @@ def main(args):
     with open(root / "iqon_test_fitb.json", "w") as f:
         json.dump(fitb, f, indent=2)
 
-    fimbs = make_fimbs_problems(test, args.n_candidates, args.n_mix, args.max_set_size_x, args.max_set_size_y)
+    finbs = make_finbs_problems(test, args.n_candidates, args.n_mix, args.max_set_size_x, args.max_set_size_y)
     with open(root / "iqon_test_finbs.json", "w") as f:
-        json.dump(fimbs, f, indent=2)
+        json.dump(finbs, f, indent=2)
 
 
 if __name__ == "__main__":

@@ -4,12 +4,12 @@ from hydra.utils import to_absolute_path
 from tqdm import tqdm
 
 from set_matching.datasets.popone_dataset import get_fitb_loader
-from set_matching.datasets.split_dataset import get_fimbs_loader
+from set_matching.datasets.split_dataset import get_finbs_loader
 from set_matching.models.set_transformer import SetTransformer
 from set_matching.models.set_matching import SetMatching
 
 MODELS = {"set_transformer": SetTransformer, "set_matching": SetMatching}
-LOADERS = {"set_transformer": get_fitb_loader, "set_matching": get_fimbs_loader}
+LOADERS = {"set_transformer": get_fitb_loader, "set_matching": get_finbs_loader}
 
 
 def predict_fitb(inputs, model):
@@ -26,7 +26,7 @@ def predict_fitb(inputs, model):
     return pred, torch.softmax(score, dim=1)
 
 
-def predict_fimbs(inputs, model):
+def predict_finbs(inputs, model):
     query, q_mask, candidates, c_mask = inputs
     query_set_size = query.shape[1]
     batch, n_candidates, cand_set_size, _, _, insize = candidates.shape
@@ -75,7 +75,7 @@ def main(cfg):
         dataset_config["max_set_size_answer"] = cfg.eval.max_cand_set_size
     loader = LOADERS[cfg.model.name](**dataset_config)
 
-    predict_fn = {"set_transformer": predict_fitb, "set_matching": predict_fimbs}[cfg.model.name]
+    predict_fn = {"set_transformer": predict_fitb, "set_matching": predict_finbs}[cfg.model.name]
     correct = 0
     with torch.no_grad():
         for batch in tqdm(loader):
