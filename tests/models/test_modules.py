@@ -1,5 +1,4 @@
 import torch
-
 from set_matching.models.modules import (
     ISAB,
     MAB,
@@ -84,7 +83,7 @@ def test_feed_forward_layer():
     assert torch.all(torch.isclose(y, _y, atol=1e-6))
 
 
-def test_multiead_softmax_attention():
+def test_multiead_softmax_self_attention():
     n_units = 128
     m = MultiHeadAttention(n_units, n_heads=8, self_attention=True, activation_fn="softmax")
     m.eval()
@@ -102,6 +101,39 @@ def test_multiead_softmax_attention():
     x_perm = x[:, :, [1, 2, 3, 0, 4, 5, 6, 7]]
     y_perm = m(x_perm, mask=xx_mask)
     assert torch.all(torch.isclose(y[:, :, [1, 2, 3, 0, 4, 5, 6, 7]], y_perm, atol=1e-6))
+
+
+def test_multiead_softmax_attention():
+    n_units = 128
+    m = MultiHeadAttention(
+        n_units, n_heads=8, self_attention=False, activation_fn="softmax", normalize_attn=True, finishing_linear=False
+    )
+    m.eval()
+
+    batchsize, sentence_length, query_length = 2, 8, 4
+    x = torch.rand(batchsize, n_units, sentence_length)
+    y = torch.rand(batchsize, n_units, query_length)
+    x_mask = torch.tensor([[True] * 5 + [False] * 3, [True] * 4 + [False] * 4])
+    y_mask = torch.tensor([[True] * 3 + [False] * 1, [True] * 2 + [False] * 2])
+    yx_mask = make_attn_mask(y_mask, x_mask)
+    z = m(y, x, mask=yx_mask)
+    assert z.shape == (batchsize, n_units, query_length)
+    # assert torch.all(z[0, :, -1:] == torch.zeros((n_units, 1), dtype=torch.float32))
+    # assert torch.all(z[1, :, -2:] == torch.zeros((n_units, 2), dtype=torch.float32))
+    assert torch.all(torch.isnan(z[0, :, -1:]))
+    assert torch.all(torch.isnan(z[1, :, -2:]))
+
+    # permutation invariant
+    x_perm = x[:, :, [1, 2, 3, 0, 4, 5, 6, 7]]
+    z_perm = m(y, x_perm, mask=yx_mask)
+    assert torch.all(torch.isclose(z[0, :, :3], z_perm[0, :, :3], atol=1e-6))
+    assert torch.all(torch.isclose(z[1, :, :2], z_perm[1, :, :2], atol=1e-6))
+
+    # permutation equivariant
+    y_perm = y[:, :, [1, 0, 2, 3]]
+    z_perm = m(y_perm, x, mask=yx_mask)
+    assert torch.all(torch.isclose(z[0, :, [1, 0, 2]], z_perm[0, :, :3], atol=1e-6))
+    assert torch.all(torch.isclose(z[1, :, [1, 0]], z_perm[1, :, :2], atol=1e-6))
 
 
 def test_multiead_relu_attention():

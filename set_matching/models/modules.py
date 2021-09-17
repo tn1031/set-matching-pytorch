@@ -62,7 +62,15 @@ class FeedForwardLayer(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_units, n_heads=8, self_attention=True, activation_fn="relu"):
+    def __init__(
+        self,
+        n_units,
+        n_heads=8,
+        self_attention=True,
+        activation_fn="relu",
+        normalize_attn=False,
+        finishing_linear=True,
+    ):
         super(MultiHeadAttention, self).__init__()
         # layers
         if self_attention:
@@ -70,7 +78,14 @@ class MultiHeadAttention(nn.Module):
         else:
             self.w_Q = ConvolutionSentence(n_units, n_units, bias=False)
             self.w_KV = ConvolutionSentence(n_units, n_units * 2, bias=False)
-        self.finishing_linear_layer = ConvolutionSentence(n_units, n_units, bias=False)
+        if finishing_linear:
+            self.finishing_linear_layer = ConvolutionSentence(n_units, n_units, bias=False)
+        else:
+            self.finishing_linear_layer = nn.Identity()
+        if normalize_attn:
+            self.norm = lambda x: x / x.sum(dim=2, keepdim=True)
+        else:
+            self.norm = nn.Identity()
         # attributes
         self.n_units = n_units
         self.n_heads = n_heads
@@ -108,6 +123,8 @@ class MultiHeadAttention(nn.Module):
         batch_A = self.activation(batch_A, mask, batch, n_queries, n_keys)
         # assert batch_A.shape == (batch * n_heads, n_queries, n_keys)
 
+        batch_A = self.norm(batch_A)  # for slot attention
+        # batch_A = torch.where(torch.isnan(batch_A.data), torch.zeros_like(batch_A), batch_A)
         batch_A, batch_V = torch.broadcast_tensors(batch_A[:, None], batch_V[:, :, None])
         batch_C = torch.sum(batch_A * batch_V, axis=3)
         # assert batch_C.shape == (batch * n_heads, chunk_size, n_queries)
