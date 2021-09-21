@@ -464,3 +464,13 @@ def test_slot_attention():
     assert x_y.shape == (batchsize, n_units, 6)
     assert torch.all(torch.isnan(x_y[0, :, -2:]))
     assert torch.all(torch.isnan(x_y[1, :, -3:]))
+
+    x_perm = x[:, :, [1, 0, 2, 3, 4, 5, 6, 7]]
+    x_y_perm = m(x_perm, yx_mask, slots=y)
+    assert torch.all(torch.isclose(x_y[0, :, :-2], x_y_perm[0, :, :-2], atol=1e-6))
+    assert torch.all(torch.isclose(x_y[1, :, :-3], x_y_perm[1, :, :-3], atol=1e-6))
+
+    y_perm = y[:, :, [1, 0, 2, 3, 4, 5]]
+    x_y_perm = m(x, yx_mask, slots=y_perm)
+    assert torch.all(torch.isclose(x_y[0, :, [1, 0, 2, 3]], x_y_perm[0, :, :-2], atol=1e-6))
+    assert torch.all(torch.isclose(x_y[1, :, [1, 0, 2]], x_y_perm[1, :, :-3], atol=1e-6))
