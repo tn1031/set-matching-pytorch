@@ -14,6 +14,7 @@ from set_matching.models.modules import (
     SetDecoder,
     SetEncoder,
     SetISABEncoder,
+    SlotAttention,
     StackedCrossSetDecoder,
     make_attn_mask,
 )
@@ -439,3 +440,27 @@ def test_stacked_cross_set_decoder():
     assert x_y.shape == (batchsize, n_units, sentence_length)
     y_x = m(y, x, yx_mask)
     assert y_x.shape == (batchsize, n_units, sentence_length + 1)
+
+
+def test_slot_attention():
+    n_units, n_output_instances = 64, 4
+    m = SlotAttention(n_units, n_output_instances=n_output_instances)
+    m.eval()
+
+    batchsize, sentence_length = 2, 8
+    x = torch.rand(batchsize, n_units, sentence_length)
+    x_mask = torch.tensor([[True] * 5 + [False] * 3, [True] * 4 + [False] * 4])
+    y_mask = torch.tensor([[True] * 4, [True] * 3 + [False] * 1])
+    yx_mask = make_attn_mask(y_mask, x_mask)
+    x_y = m(x, yx_mask)
+    assert x_y.shape == (batchsize, n_units, n_output_instances)
+    assert not torch.any(torch.isnan(x_y[0, :, :]))
+    assert torch.all(torch.isnan(x_y[1, :, -1]))
+
+    y = torch.rand(batchsize, n_units, 6)
+    y_mask = torch.tensor([[True] * 4 + [False] * 2, [True] * 3 + [False] * 3])
+    yx_mask = make_attn_mask(y_mask, x_mask)
+    x_y = m(x, yx_mask, slots=y)
+    assert x_y.shape == (batchsize, n_units, 6)
+    assert torch.all(torch.isnan(x_y[0, :, -2:]))
+    assert torch.all(torch.isnan(x_y[1, :, -3:]))

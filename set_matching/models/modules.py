@@ -83,6 +83,7 @@ class MultiHeadAttention(nn.Module):
         else:
             self.finishing_linear_layer = nn.Identity()
         if normalize_attn:
+            # self.norm = lambda x: (x + 1e-8) / (x + 1e-8).sum(dim=2, keepdim=True) # need to impl. normalizing with mask
             self.norm = lambda x: x / x.sum(dim=2, keepdim=True)
         else:
             self.norm = nn.Identity()
@@ -564,3 +565,59 @@ class StackedCrossSetDecoder(nn.Module):
             attnmap.append(layer.get_attnmap(s, y, xy_mask))
             s = layer(x, y, xy_mask)
         return attnmap
+
+
+class SlotAttention(nn.Module):
+    def __init__(self, n_units, n_heads=8, n_output_instances=1, n_iterations=3):
+        super().__init__()
+        self.n_iterations = n_iterations
+        self.n_slots = n_output_instances
+
+        self.ln_inp = LayerNormalizationSentence(n_units, eps=1e-6)
+        self.ln_slot_1 = LayerNormalizationSentence(n_units, eps=1e-6)
+        self.ln_slot_2 = LayerNormalizationSentence(n_units, eps=1e-6)
+        self.mha = MultiHeadAttention(
+            n_units,
+            n_heads,
+            self_attention=False,
+            activation_fn="softmax",
+            normalize_attn=True,
+            finishing_linear=False,
+        )
+        self.gru = nn.GRUCell(n_units, n_units)
+        self.rff = FeedForwardLayer(n_units)
+
+        self.register_buffer(
+            "mu",
+            nn.init.xavier_uniform_(torch.zeros((1, n_units, 1))),
+        )
+        self.register_buffer(
+            "ln_sigma",
+            nn.init.xavier_uniform_(torch.zeros((1, n_units, 1))),
+        )
+
+    def forward(self, inputs, mask, slots=None):
+        batch, n_units, _ = inputs.shape
+        if slots is None:
+            n_slots = self.n_slots
+            slots = torch.randn((batch, n_units, n_slots)).type_as(inputs)
+            slots = self.mu + self.ln_sigma.exp() * slots
+        else:
+            n_slots = slots.shape[2]
+
+        inputs = self.ln_inp(inputs)
+
+        for _ in range(self.n_iterations):
+            slots_prev = slots
+            slots = self.ln_slot_1(slots)
+
+            updates = self.mha(slots, inputs, mask=mask)  # (batch, n_units, n_slots)
+
+            slots = self.gru(
+                updates.permute(0, 2, 1).reshape((batch * n_slots, n_units)),
+                slots_prev.permute(0, 2, 1).reshape((batch * n_slots, n_units)),
+            )
+            slots = slots.reshape((batch, n_slots, n_units)).permute(0, 2, 1)  # to (batch, n_units, n_slots)
+            slots = slots + self.rff(self.ln_slot_2(slots))
+
+        return slots
