@@ -7,4 +7,4 @@ n_iterative: 2
 enc_apply_ln: true
 dec_apply_ln: true
 dec_component: MHSim
-cnn_arch: resnet18
+embedder_arch: resnet18

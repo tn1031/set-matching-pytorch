@@ -15,18 +15,20 @@ class SetPrediction(nn.Module):
         n_encoder_layers=2,
         n_heads=8,
         n_iterations=3,
-        cnn_arch="resnet18",
+        embedder_arch="resnet18",
         disable_cnn_update=False,
     ):
         super(SetPrediction, self).__init__()
-        self.embedder = CNN(n_units, cnn_arch, disable_cnn_update)
+        if embedder_arch == "linear":
+            self.embedder = nn.Linear(4096, n_units)
+        else:
+            self.embedder = CNN(n_units, embedder_arch, disable_cnn_update)
         self.encoder = SetEncoder(n_units, n_layers=n_encoder_layers, n_heads=n_heads)
         self.slot_attention = SlotAttention(n_units, n_heads=n_heads, n_output_instances=1, n_iterations=n_iterations)
         self.lookup = nn.Embedding(cardinality, n_units, padding_idx=PADDING_IDX)
         self.n_units = n_units
 
     def forward(self, x, x_mask, y_category, y):
-        insize = x.shape[-1]
         batch, n_inputs = x.shape[:2]
         n_slots = y_category.shape[1]
 
@@ -34,7 +36,7 @@ class SetPrediction(nn.Module):
         xx_mask = make_attn_mask(x_mask, x_mask)
         yx_mask = make_attn_mask(y_mask, x_mask)
 
-        x = self.embedder(x.view(-1, 3, insize, insize))  # (batch*n_items, n_units)
+        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_inputs, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
 
         z = self.encoder(x, xx_mask)
@@ -43,7 +45,7 @@ class SetPrediction(nn.Module):
         category_emb = self.lookup(y_category).permute(0, 2, 1)
         pred_y = self.slot_attention(z, yx_mask, slots=category_emb).reshape((batch * n_slots, self.n_units))
 
-        true_y = self.embedder(y.view(-1, 3, insize, insize))
+        true_y = self.embedder(y.view((-1,) + y.shape[2:]))
 
         y_mask = y_mask.reshape((batch * n_slots,))
         pred_y = pred_y[y_mask]
@@ -52,14 +54,13 @@ class SetPrediction(nn.Module):
         return score
 
     def predict(self, x, x_mask, y_category):
-        insize = x.shape[-1]
         batch, n_items = x.shape[:2]
 
         y_mask = y_category != PADDING_IDX
         xx_mask = make_attn_mask(x_mask, x_mask)
         yx_mask = make_attn_mask(y_mask, x_mask)
 
-        x = self.embedder(x.view(-1, 3, insize, insize))  # (batch*n_items, n_units)
+        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_items, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
 
         z = self.encoder(x, xx_mask)

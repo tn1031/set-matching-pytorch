@@ -16,11 +16,14 @@ class SetMatching(nn.Module):
         enc_apply_ln=True,
         dec_apply_ln=True,
         dec_component="MHSim",
-        cnn_arch="resnet18",
+        embedder_arch="resnet18",
         disable_cnn_update=False,
     ):
         super(SetMatching, self).__init__()
-        self.embedder = CNN(n_units, cnn_arch, disable_cnn_update)
+        if embedder_arch == "linear":
+            self.embedder = nn.Linear(4096, n_units)
+        else:
+            self.embedder = CNN(n_units, embedder_arch, disable_cnn_update)
         self.layers = []
         for i in range(0, n_iterative):
             name = f"enc_{i}"
@@ -48,8 +51,8 @@ class SetMatching(nn.Module):
         return score
 
     def embed_reshape_transpose(self, x):
-        batch, n_items, _, insize, _ = x.shape
-        x = self.embedder(x.view(-1, 3, insize, insize))  # (batch*n_items, n_units)
+        batch, n_items = x.shape[:2]
+        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_items, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
         return x
 

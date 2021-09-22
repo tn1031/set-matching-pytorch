@@ -12,13 +12,16 @@ class SetTransformer(nn.Module):
         n_encoder_layers=2,
         n_heads=8,
         n_output_instances=1,
-        cnn_arch="resnet18",
+        embedder_arch="resnet18",
         disable_cnn_update=False,
         dec_apply_pma=True,
         dec_apply_sab=True,
     ):
         super(SetTransformer, self).__init__()
-        self.embedder = CNN(n_units, cnn_arch, disable_cnn_update)
+        if embedder_arch == "linear":
+            self.embedder = nn.Linear(4096, n_units)
+        else:
+            self.embedder = CNN(n_units, embedder_arch, disable_cnn_update)
         self.encoder = SetEncoder(n_units, n_layers=n_encoder_layers, n_heads=n_heads)
         self.decoder = SetDecoder(
             n_units,
@@ -32,14 +35,13 @@ class SetTransformer(nn.Module):
         self.register_buffer("_y_mask", torch.ones((1, self.n_output_instances), dtype=torch.bool))
 
     def forward(self, x, x_mask, t):
-        insize = x.shape[-1]
         batch, n_items = x.shape[:2]
         y_mask = torch.cat([self._y_mask] * batch, dim=0)
         xx_mask = make_attn_mask(x_mask, x_mask)
         yx_mask = make_attn_mask(y_mask, x_mask)
         yy_mask = make_attn_mask(y_mask, y_mask)
 
-        x = self.embedder(x.view(-1, 3, insize, insize))  # (batch*n_items, n_units)
+        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_items, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
 
         z = self.encoder(x, xx_mask)
@@ -55,14 +57,13 @@ class SetTransformer(nn.Module):
         return score
 
     def predict(self, x, x_mask):
-        insize = x.shape[-1]
         batch, n_items = x.shape[:2]
         y_mask = torch.cat([self._y_mask] * batch, dim=0)
         xx_mask = make_attn_mask(x_mask, x_mask)
         yx_mask = make_attn_mask(y_mask, x_mask)
         yy_mask = make_attn_mask(y_mask, y_mask)
 
-        x = self.embedder(x.view(-1, 3, insize, insize))  # (batch*n_items, n_units)
+        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_items, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
 
         z = self.encoder(x, xx_mask)
