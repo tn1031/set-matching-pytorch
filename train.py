@@ -7,11 +7,14 @@ from ignite.metrics import Accuracy, Loss, RunningAverage
 from tensorboardX import SummaryWriter
 
 import set_matching.extensions as exfn
-from set_matching.datasets.iqon3000_dataset import get_loader
+from set_matching.datasets.iqon3000_dataset import get_loader as iqon3k_loader
+from set_matching.datasets.shift15m_dataset import get_loader as shift15m_loader
 from set_matching.models.set_matching import SetMatching
+from set_matching.models.set_prediction import SetPrediction
 from set_matching.models.set_transformer import SetTransformer
 
-MODELS = {"set_transformer": SetTransformer, "set_matching": SetMatching}
+MODELS = {"set_transformer": SetTransformer, "set_matching": SetMatching, "set_prediction": SetPrediction}
+LOADER = {"IQON3000": iqon3k_loader, "shift15m": shift15m_loader}
 
 
 @hydra.main(config_path="conf", config_name="config")
@@ -41,16 +44,17 @@ def main(cfg):
     }
     if cfg.model.name == "set_matching":
         dataset_config["n_mix"] = cfg.dataset.n_mix
-    dataset_name = "IQON3000"
-    train_loader = get_loader(
+    elif cfg.model.name == "set_prediction":
+        dataset_config["n_mix"] = cfg.dataset.n_mix
+    train_loader = LOADER[cfg.dataset.name](
         task_name=cfg.model.name,
-        fname=f"{dataset_name}_train.json",
+        fname=f"{cfg.dataset.name}_train.json",
         **dataset_config,
         is_train=True,
     )
-    val_loader = get_loader(
+    val_loader = LOADER[cfg.dataset.name](
         task_name=cfg.model.name,
-        fname=f"{dataset_name}_valid.json",
+        fname=f"{cfg.dataset.name}_valid.json",
         **dataset_config,
         is_train=False,
     )

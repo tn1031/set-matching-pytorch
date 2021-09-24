@@ -2,6 +2,7 @@ defaults:
   - model: set_transformer
 
 dataset:
+  name: IQON3000
   data_dir: ../data
   batch_size: 32
   max_set_size: 8

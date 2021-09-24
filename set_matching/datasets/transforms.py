@@ -77,4 +77,4 @@ class FeatureListTransform:
                 categories.append(0)
                 mask.append(False)
 
-        return np.array(features), np.array(categories), np.array(mask)
+        return np.array(features, dtype=np.float32), np.array(categories, dtype=np.int32), np.array(mask)
