@@ -3,12 +3,13 @@ import torch
 from hydra.utils import to_absolute_path
 from ignite.engine import Engine, Events
 from ignite.handlers import Checkpoint, DiskSaver, EarlyStopping, ModelCheckpoint
-from ignite.metrics import Accuracy, Loss, RunningAverage
+from ignite.metrics import Loss, RunningAverage
 from tensorboardX import SummaryWriter
 
 import set_matching.extensions as exfn
 from set_matching.datasets.iqon3000_dataset import get_loader as iqon3k_loader
 from set_matching.datasets.shift15m_dataset import get_loader as shift15m_loader
+from set_matching.metrics import NPairsAccuracy
 from set_matching.models.set_matching import SetMatching
 from set_matching.models.set_prediction import SetPrediction
 from set_matching.models.set_transformer import SetTransformer
@@ -75,7 +76,7 @@ def main(cfg):
 
     def eval_process(engine, batch):
         model.eval()
-        with torch.no_grad():
+        with torch.inference_mode():
             batch = tuple(map(lambda x: x.to(device), batch))
             score = model(*batch)
             return score, torch.arange(score.size()[0]).to(device)
@@ -88,9 +89,9 @@ def main(cfg):
 
     # metrics
     RunningAverage(output_transform=lambda x: x).attach(trainer, "loss")
-    Accuracy().attach(train_evaluator, "acc")
+    NPairsAccuracy().attach(train_evaluator, "acc")
     Loss(loss_fn).attach(train_evaluator, "loss")
-    Accuracy().attach(valid_evaluator, "acc")
+    NPairsAccuracy().attach(valid_evaluator, "acc")
     Loss(loss_fn).attach(valid_evaluator, "loss")
 
     # early stopping

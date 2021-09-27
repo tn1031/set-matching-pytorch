@@ -43,7 +43,11 @@ class SetPrediction(nn.Module):
         # (batch, 512, 8)
 
         category_emb = self.lookup(y_category).permute(0, 2, 1)
-        pred_y = self.slot_attention(z, yx_mask, slots=category_emb).reshape((batch * n_slots, self.n_units))
+        pred_y = (
+            self.slot_attention(z, yx_mask, slots=category_emb)
+            .permute(0, 2, 1)
+            .reshape((batch * n_slots, self.n_units))
+        )
 
         true_y = self.embedder(y.view((-1,) + y.shape[2:]))
 

@@ -119,10 +119,8 @@ def test_multiead_softmax_attention():
     yx_mask = make_attn_mask(y_mask, x_mask)
     z = m(y, x, mask=yx_mask)
     assert z.shape == (batchsize, n_units, query_length)
-    # assert torch.all(z[0, :, -1:] == torch.zeros((n_units, 1), dtype=torch.float32))
-    # assert torch.all(z[1, :, -2:] == torch.zeros((n_units, 2), dtype=torch.float32))
-    assert torch.all(torch.isnan(z[0, :, -1:]))
-    assert torch.all(torch.isnan(z[1, :, -2:]))
+    assert torch.all(z[0, :, -1:] == torch.zeros((n_units, 1), dtype=torch.float32))
+    assert torch.all(z[1, :, -2:] == torch.zeros((n_units, 2), dtype=torch.float32))
 
     # permutation invariant
     x_perm = x[:, :, [1, 2, 3, 0, 4, 5, 6, 7]]
@@ -454,16 +452,15 @@ def test_slot_attention():
     yx_mask = make_attn_mask(y_mask, x_mask)
     x_y = m(x, yx_mask)
     assert x_y.shape == (batchsize, n_units, n_output_instances)
-    assert not torch.any(torch.isnan(x_y[0, :, :]))
-    assert torch.all(torch.isnan(x_y[1, :, -1]))
+    # x_y[1, :, -1] is not referenced.
 
     y = torch.rand(batchsize, n_units, 6)
     y_mask = torch.tensor([[True] * 4 + [False] * 2, [True] * 3 + [False] * 3])
     yx_mask = make_attn_mask(y_mask, x_mask)
     x_y = m(x, yx_mask, slots=y)
     assert x_y.shape == (batchsize, n_units, 6)
-    assert torch.all(torch.isnan(x_y[0, :, -2:]))
-    assert torch.all(torch.isnan(x_y[1, :, -3:]))
+    # x_y[0, :, -2:] is not referenced.
+    # x_y[1, :, -3:] is not referenced.
 
     x_perm = x[:, :, [1, 0, 2, 3, 4, 5, 6, 7]]
     x_y_perm = m(x_perm, yx_mask, slots=y)

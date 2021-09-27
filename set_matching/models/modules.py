@@ -83,8 +83,7 @@ class MultiHeadAttention(nn.Module):
         else:
             self.finishing_linear_layer = nn.Identity()
         if normalize_attn:
-            # self.norm = lambda x: (x + 1e-8) / (x + 1e-8).sum(dim=2, keepdim=True) # need to impl. normalizing with mask
-            self.norm = lambda x: x / x.sum(dim=2, keepdim=True)
+            self.norm = self.safe_norm
         else:
             self.norm = nn.Identity()
         # attributes
@@ -133,6 +132,12 @@ class MultiHeadAttention(nn.Module):
         # assert C.shape == (batch, n_units, n_queries)
         C = self.finishing_linear_layer(C)
         return C
+
+    def safe_norm(self, x):
+        # [todo] add epsilon (x <- x + 1e-8)
+        x = x / x.sum(dim=2, keepdim=True)
+        x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
+        return x
 
     def _softmax_activation(self, _batch_A, _mask, batch, n_queries, n_keys):
         mask = torch.cat([_mask] * self.n_heads, dim=0)

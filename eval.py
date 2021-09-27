@@ -86,7 +86,7 @@ def main(cfg):
 
     predict_fn = {"set_transformer": predict_fitb, "set_matching": predict_finbs}[cfg.model.name]
     correct = 0
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch in tqdm(loader):
             pred, _ = predict_fn(tuple(map(lambda x: x.to(device), batch)), model)
             correct += pred.eq(torch.zeros_like(pred)).sum().item()
