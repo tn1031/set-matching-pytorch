@@ -3,7 +3,7 @@ import pathlib
 
 import numpy as np
 import pytest
-from set_matching.datasets.shift15m_dataset import PopOneDataset, SplitDataset
+from set_matching.datasets.shift15m_dataset import FINBsDataset, FITBDataset, PopOneDataset, SplitDataset
 
 
 def test_popone_dataset(data_dir):
@@ -88,3 +88,47 @@ def test_split_dataset(data_dir):
         assert np.all(x_mask == np.array([True] * max_set_size))
         assert y_images.shape == (max_set_size, 4096)
         assert np.all(y_mask == np.array([True] * max_set_size))
+
+
+def test_fitb_dataset(data_dir):
+    if data_dir is None:
+        pytest.skip("there is no testdata.")
+
+    root = pathlib.Path(".")
+    data = json.load(open(pathlib.Path(data_dir) / "shift15m_test_fitb.json"))
+    max_set_size = 8
+    data = [s for s in data if len(s["question"]) <= max_set_size]
+
+    dataset = FITBDataset(data, root, max_set_size=max_set_size - 1)
+
+    for i in range(min(len(data), 5)):
+        n_query_items = min(len(data[i]["question"]) - 1, max_set_size)
+        question, mask, answer = dataset[i]
+
+        assert question.shape == (max_set_size - 1, 4096)
+        assert np.all(mask == np.array([True] * n_query_items + [False] * (max_set_size - 1 - n_query_items)))
+        assert answer.shape == (4, 4096)
+
+        # input file validation
+        _set = data[i]
+        assert _set["question"][int(_set["blank_position"])] == _set["answer"][0]
+
+
+def test_finbs_dataset(data_dir):
+    if data_dir is None:
+        pytest.skip("there is no testdata.")
+
+    root = pathlib.Path(".")
+    data = json.load(open(pathlib.Path(data_dir) / "shift15m_test_finbs.json"))
+    max_set_size_query, max_set_size_answer = 8, 2
+
+    dataset = FINBsDataset(data, root, max_set_size_query=max_set_size_query, max_set_size_answer=max_set_size_answer)
+
+    for i in range(min(len(data), 5)):
+        n_query_items = min(len(data[i]["query"]), max_set_size_query)
+        query, q_mask, answers, a_mask = dataset[i]
+
+        assert query.shape == (max_set_size_query, 4096)
+        assert np.all(q_mask == np.array([True] * n_query_items + [False] * (max_set_size_query - n_query_items)))
+        assert answers.shape[1:] == (max_set_size_answer, 4096)
+        assert a_mask.shape[1] == max_set_size_answer
