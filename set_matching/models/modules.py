@@ -62,7 +62,15 @@ class FeedForwardLayer(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_units, n_heads=8, self_attention=True, activation_fn="relu"):
+    def __init__(
+        self,
+        n_units,
+        n_heads=8,
+        self_attention=True,
+        activation_fn="relu",
+        normalize_attn=False,
+        finishing_linear=True,
+    ):
         super(MultiHeadAttention, self).__init__()
         # layers
         if self_attention:
@@ -70,7 +78,14 @@ class MultiHeadAttention(nn.Module):
         else:
             self.w_Q = ConvolutionSentence(n_units, n_units, bias=False)
             self.w_KV = ConvolutionSentence(n_units, n_units * 2, bias=False)
-        self.finishing_linear_layer = ConvolutionSentence(n_units, n_units, bias=False)
+        if finishing_linear:
+            self.finishing_linear_layer = ConvolutionSentence(n_units, n_units, bias=False)
+        else:
+            self.finishing_linear_layer = nn.Identity()
+        if normalize_attn:
+            self.norm = self.safe_norm
+        else:
+            self.norm = nn.Identity()
         # attributes
         self.n_units = n_units
         self.n_heads = n_heads
@@ -108,6 +123,8 @@ class MultiHeadAttention(nn.Module):
         batch_A = self.activation(batch_A, mask, batch, n_queries, n_keys)
         # assert batch_A.shape == (batch * n_heads, n_queries, n_keys)
 
+        batch_A = self.norm(batch_A)  # for slot attention
+        # batch_A = torch.where(torch.isnan(batch_A.data), torch.zeros_like(batch_A), batch_A)
         batch_A, batch_V = torch.broadcast_tensors(batch_A[:, None], batch_V[:, :, None])
         batch_C = torch.sum(batch_A * batch_V, axis=3)
         # assert batch_C.shape == (batch * n_heads, chunk_size, n_queries)
@@ -115,6 +132,12 @@ class MultiHeadAttention(nn.Module):
         # assert C.shape == (batch, n_units, n_queries)
         C = self.finishing_linear_layer(C)
         return C
+
+    def safe_norm(self, x):
+        # [todo] add epsilon (x <- x + 1e-8)
+        x = x / x.sum(dim=2, keepdim=True)
+        x = torch.where(torch.isnan(x), torch.zeros_like(x), x)
+        return x
 
     def _softmax_activation(self, _batch_A, _mask, batch, n_queries, n_keys):
         mask = torch.cat([_mask] * self.n_heads, dim=0)
@@ -547,3 +570,59 @@ class StackedCrossSetDecoder(nn.Module):
             attnmap.append(layer.get_attnmap(s, y, xy_mask))
             s = layer(x, y, xy_mask)
         return attnmap
+
+
+class SlotAttention(nn.Module):
+    def __init__(self, n_units, n_heads=8, n_output_instances=1, n_iterations=3):
+        super().__init__()
+        self.n_iterations = n_iterations
+        self.n_slots = n_output_instances
+
+        self.ln_inp = LayerNormalizationSentence(n_units, eps=1e-6)
+        self.ln_slot_1 = LayerNormalizationSentence(n_units, eps=1e-6)
+        self.ln_slot_2 = LayerNormalizationSentence(n_units, eps=1e-6)
+        self.mha = MultiHeadAttention(
+            n_units,
+            n_heads,
+            self_attention=False,
+            activation_fn="softmax",
+            normalize_attn=True,
+            finishing_linear=False,
+        )
+        self.gru = nn.GRUCell(n_units, n_units)
+        self.rff = FeedForwardLayer(n_units)
+
+        self.register_buffer(
+            "mu",
+            nn.init.xavier_uniform_(torch.zeros((1, n_units, 1))),
+        )
+        self.register_buffer(
+            "ln_sigma",
+            nn.init.xavier_uniform_(torch.zeros((1, n_units, 1))),
+        )
+
+    def forward(self, inputs, mask, slots=None):
+        batch, n_units, _ = inputs.shape
+        if slots is None:
+            n_slots = self.n_slots
+            slots = torch.randn((batch, n_units, n_slots)).type_as(inputs)
+            slots = self.mu + self.ln_sigma.exp() * slots
+        else:
+            n_slots = slots.shape[2]
+
+        inputs = self.ln_inp(inputs)
+
+        for _ in range(self.n_iterations):
+            slots_prev = slots
+            slots = self.ln_slot_1(slots)
+
+            updates = self.mha(slots, inputs, mask=mask)  # (batch, n_units, n_slots)
+
+            slots = self.gru(
+                updates.permute(0, 2, 1).reshape((batch * n_slots, n_units)),
+                slots_prev.permute(0, 2, 1).reshape((batch * n_slots, n_units)),
+            )
+            slots = slots.reshape((batch, n_slots, n_units)).permute(0, 2, 1)  # to (batch, n_units, n_slots)
+            slots = slots + self.rff(self.ln_slot_2(slots))
+
+        return slots

@@ -3,7 +3,7 @@ n_units: 512
 n_encoder_layers: 2
 n_heads: 8
 n_output_instances: 1
-cnn_arch: resnet18
+embedder_arch: resnet18
 disable_cnn_update: false
 dec_apply_pma: true
 dec_apply_sab: true

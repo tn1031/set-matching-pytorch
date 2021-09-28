@@ -3,17 +3,19 @@ import torch
 from hydra.utils import to_absolute_path
 from ignite.engine import Engine, Events
 from ignite.handlers import Checkpoint, DiskSaver, EarlyStopping, ModelCheckpoint
-from ignite.metrics import Accuracy, Loss, RunningAverage
+from ignite.metrics import Loss, RunningAverage
 from tensorboardX import SummaryWriter
 
 import set_matching.extensions as exfn
-from set_matching.datasets.popone_dataset import get_loader as get_st_loader
-from set_matching.datasets.split_dataset import get_loader as get_sm_loader
+from set_matching.datasets.iqon3000_dataset import get_loader as iqon3k_loader
+from set_matching.datasets.shift15m_dataset import get_loader as shift15m_loader
+from set_matching.metrics import NPairsAccuracy
 from set_matching.models.set_matching import SetMatching
+from set_matching.models.set_prediction import SetPrediction
 from set_matching.models.set_transformer import SetTransformer
 
-MODELS = {"set_transformer": SetTransformer, "set_matching": SetMatching}
-LOADERS = {"set_transformer": get_st_loader, "set_matching": get_sm_loader}
+MODELS = {"set_transformer": SetTransformer, "set_matching": SetMatching, "set_prediction": SetPrediction}
+LOADER = {"IQON3000": iqon3k_loader, "shift15m": shift15m_loader}
 
 
 @hydra.main(config_path="conf", config_name="config")
@@ -38,18 +40,22 @@ def main(cfg):
     dataset_config = {
         "data_dir": to_absolute_path(cfg.dataset.data_dir),
         "batch_size": cfg.dataset.batch_size,
-        "cnn_arch": model_config["cnn_arch"],
+        "embedder_arch": model_config["embedder_arch"],
         "max_set_size": cfg.dataset.max_set_size,
     }
     if cfg.model.name == "set_matching":
         dataset_config["n_mix"] = cfg.dataset.n_mix
-    train_loader = LOADERS[cfg.model.name](
-        "iqon_train.json",
+    elif cfg.model.name == "set_prediction":
+        dataset_config["n_mix"] = cfg.dataset.n_mix
+    train_loader = LOADER[cfg.dataset.name](
+        task_name=cfg.model.name,
+        fname=f"{cfg.dataset.name}_train.json",
         **dataset_config,
         is_train=True,
     )
-    val_loader = LOADERS[cfg.model.name](
-        "iqon_valid.json",
+    val_loader = LOADER[cfg.dataset.name](
+        task_name=cfg.model.name,
+        fname=f"{cfg.dataset.name}_valid.json",
         **dataset_config,
         is_train=False,
     )
@@ -70,7 +76,7 @@ def main(cfg):
 
     def eval_process(engine, batch):
         model.eval()
-        with torch.no_grad():
+        with torch.inference_mode():
             batch = tuple(map(lambda x: x.to(device), batch))
             score = model(*batch)
             return score, torch.arange(score.size()[0]).to(device)
@@ -83,9 +89,9 @@ def main(cfg):
 
     # metrics
     RunningAverage(output_transform=lambda x: x).attach(trainer, "loss")
-    Accuracy().attach(train_evaluator, "acc")
+    NPairsAccuracy().attach(train_evaluator, "acc")
     Loss(loss_fn).attach(train_evaluator, "loss")
-    Accuracy().attach(valid_evaluator, "acc")
+    NPairsAccuracy().attach(valid_evaluator, "acc")
     Loss(loss_fn).attach(valid_evaluator, "loss")
 
     # early stopping

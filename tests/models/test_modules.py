@@ -1,5 +1,4 @@
 import torch
-
 from set_matching.models.modules import (
     ISAB,
     MAB,
@@ -15,6 +14,7 @@ from set_matching.models.modules import (
     SetDecoder,
     SetEncoder,
     SetISABEncoder,
+    SlotAttention,
     StackedCrossSetDecoder,
     make_attn_mask,
 )
@@ -84,7 +84,7 @@ def test_feed_forward_layer():
     assert torch.all(torch.isclose(y, _y, atol=1e-6))
 
 
-def test_multiead_softmax_attention():
+def test_multiead_softmax_self_attention():
     n_units = 128
     m = MultiHeadAttention(n_units, n_heads=8, self_attention=True, activation_fn="softmax")
     m.eval()
@@ -102,6 +102,37 @@ def test_multiead_softmax_attention():
     x_perm = x[:, :, [1, 2, 3, 0, 4, 5, 6, 7]]
     y_perm = m(x_perm, mask=xx_mask)
     assert torch.all(torch.isclose(y[:, :, [1, 2, 3, 0, 4, 5, 6, 7]], y_perm, atol=1e-6))
+
+
+def test_multiead_softmax_attention():
+    n_units = 128
+    m = MultiHeadAttention(
+        n_units, n_heads=8, self_attention=False, activation_fn="softmax", normalize_attn=True, finishing_linear=False
+    )
+    m.eval()
+
+    batchsize, sentence_length, query_length = 2, 8, 4
+    x = torch.rand(batchsize, n_units, sentence_length)
+    y = torch.rand(batchsize, n_units, query_length)
+    x_mask = torch.tensor([[True] * 5 + [False] * 3, [True] * 4 + [False] * 4])
+    y_mask = torch.tensor([[True] * 3 + [False] * 1, [True] * 2 + [False] * 2])
+    yx_mask = make_attn_mask(y_mask, x_mask)
+    z = m(y, x, mask=yx_mask)
+    assert z.shape == (batchsize, n_units, query_length)
+    assert torch.all(z[0, :, -1:] == torch.zeros((n_units, 1), dtype=torch.float32))
+    assert torch.all(z[1, :, -2:] == torch.zeros((n_units, 2), dtype=torch.float32))
+
+    # permutation invariant
+    x_perm = x[:, :, [1, 2, 3, 0, 4, 5, 6, 7]]
+    z_perm = m(y, x_perm, mask=yx_mask)
+    assert torch.all(torch.isclose(z[0, :, :3], z_perm[0, :, :3], atol=1e-6))
+    assert torch.all(torch.isclose(z[1, :, :2], z_perm[1, :, :2], atol=1e-6))
+
+    # permutation equivariant
+    y_perm = y[:, :, [1, 0, 2, 3]]
+    z_perm = m(y_perm, x, mask=yx_mask)
+    assert torch.all(torch.isclose(z[0, :, [1, 0, 2]], z_perm[0, :, :3], atol=1e-6))
+    assert torch.all(torch.isclose(z[1, :, [1, 0]], z_perm[1, :, :2], atol=1e-6))
 
 
 def test_multiead_relu_attention():
@@ -407,3 +438,36 @@ def test_stacked_cross_set_decoder():
     assert x_y.shape == (batchsize, n_units, sentence_length)
     y_x = m(y, x, yx_mask)
     assert y_x.shape == (batchsize, n_units, sentence_length + 1)
+
+
+def test_slot_attention():
+    n_units, n_output_instances = 64, 4
+    m = SlotAttention(n_units, n_output_instances=n_output_instances)
+    m.eval()
+
+    batchsize, sentence_length = 2, 8
+    x = torch.rand(batchsize, n_units, sentence_length)
+    x_mask = torch.tensor([[True] * 5 + [False] * 3, [True] * 4 + [False] * 4])
+    y_mask = torch.tensor([[True] * 4, [True] * 3 + [False] * 1])
+    yx_mask = make_attn_mask(y_mask, x_mask)
+    x_y = m(x, yx_mask)
+    assert x_y.shape == (batchsize, n_units, n_output_instances)
+    # x_y[1, :, -1] is not referenced.
+
+    y = torch.rand(batchsize, n_units, 6)
+    y_mask = torch.tensor([[True] * 4 + [False] * 2, [True] * 3 + [False] * 3])
+    yx_mask = make_attn_mask(y_mask, x_mask)
+    x_y = m(x, yx_mask, slots=y)
+    assert x_y.shape == (batchsize, n_units, 6)
+    # x_y[0, :, -2:] is not referenced.
+    # x_y[1, :, -3:] is not referenced.
+
+    x_perm = x[:, :, [1, 0, 2, 3, 4, 5, 6, 7]]
+    x_y_perm = m(x_perm, yx_mask, slots=y)
+    assert torch.all(torch.isclose(x_y[0, :, :-2], x_y_perm[0, :, :-2], atol=1e-6))
+    assert torch.all(torch.isclose(x_y[1, :, :-3], x_y_perm[1, :, :-3], atol=1e-6))
+
+    y_perm = y[:, :, [1, 0, 2, 3, 4, 5]]
+    x_y_perm = m(x, yx_mask, slots=y_perm)
+    assert torch.all(torch.isclose(x_y[0, :, [1, 0, 2, 3]], x_y_perm[0, :, :-2], atol=1e-6))
+    assert torch.all(torch.isclose(x_y[1, :, [1, 0, 2]], x_y_perm[1, :, :-3], atol=1e-6))

@@ -1,0 +1,8 @@
+name: set_prediction  # don't change
+cardinality: 8
+n_units: 512
+n_encoder_layers: 2
+n_heads: 8
+n_iterations: 3
+embedder_arch: linear
+disable_cnn_update: false
