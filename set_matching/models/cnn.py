@@ -12,7 +12,7 @@ try:
 
 except ModuleNotFoundError:
     msg = (
-        "If usin CNN, it requires torchvision.\n"
+        "If using CNN, it requires torchvision.\n"
         "Please install extra packages as follows:\n"
         "  poetry install -extras torchvision"
     )
