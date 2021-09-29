@@ -1,12 +1,22 @@
 import torch.nn as nn
-import torchvision
 
-cnnlib = {
-    "inception_v3": torchvision.models.inception_v3,
-    "resnet18": torchvision.models.resnet18,
-    "resnet34": torchvision.models.resnet34,
-    "resnet50": torchvision.models.resnet50,
-}
+try:
+    import torchvision
+
+    cnnlib = {
+        "inception_v3": torchvision.models.inception_v3,
+        "resnet18": torchvision.models.resnet18,
+        "resnet34": torchvision.models.resnet34,
+        "resnet50": torchvision.models.resnet50,
+    }
+
+except ModuleNotFoundError:
+    msg = (
+        "If usin CNN, it requires torchvision.\n"
+        "Please install extra packages as follows:\n"
+        "  poetry install -extras torchvision"
+    )
+    print(msg)
 
 
 class CNN(nn.Module):
