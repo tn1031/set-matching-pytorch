@@ -84,8 +84,8 @@ def main(cfg):
     trainer = Engine(train_process)
     train_evaluator = Engine(eval_process)
     valid_evaluator = Engine(eval_process)
-    train_history = {"loss": [-1], "acc": [-1]}  # to avoid Index out of range.
-    valid_history = {"loss": [-1], "acc": [-1]}
+    train_history = {"loss": [-1], "acc": [-1], "iteration": [-1], "epoch": [-1]}  # to avoid Index out of range.
+    valid_history = {"loss": [-1], "acc": [-1], "iteration": [-1], "epoch": [-1]}
 
     # metrics
     RunningAverage(output_transform=lambda x: x).attach(trainer, "loss")
