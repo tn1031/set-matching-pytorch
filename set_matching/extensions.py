@@ -32,5 +32,7 @@ def log_training_results(engine, name, evaluator, loader, history, writer):
     )
     history["loss"].append(avg_loss)
     history["acc"].append(avg_accuracy)
+    history["iteration"].append(engine.state.iteration)
+    history["epoch"].append(engine.state.epoch)
     writer.add_scalar("{}/avg_accuracy".format(name), avg_accuracy, engine.state.epoch)
     writer.add_scalar("{}/avg_loss".format(name), avg_loss, engine.state.epoch)
