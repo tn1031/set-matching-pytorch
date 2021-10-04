@@ -3,11 +3,11 @@ from set_matching.models.set_matching import SetMatching
 
 
 def test_set_matching_image():
-    n_units, n_encoder_layer, n_decoder_layer, n_heads, n_iterative = 64, 2, 2, 8, 2
+    n_units, n_encoder_layers, n_decoder_layers, n_heads, n_iterative = 64, 2, 2, 8, 2
     m = SetMatching(
         n_units,
-        n_encoder_layer=n_encoder_layer,
-        n_decoder_layer=n_decoder_layer,
+        n_encoder_layers=n_encoder_layers,
+        n_decoder_layers=n_decoder_layers,
         n_heads=n_heads,
         n_iterative=n_iterative,
     )
@@ -35,11 +35,11 @@ def test_set_matching_image():
 
 
 def test_set_matching_feature():
-    n_units, n_encoder_layer, n_decoder_layer, n_heads, n_iterative = 64, 2, 2, 8, 2
+    n_units, n_encoder_layers, n_decoder_layers, n_heads, n_iterative = 64, 2, 2, 8, 2
     m = SetMatching(
         n_units,
-        n_encoder_layer=n_encoder_layer,
-        n_decoder_layer=n_decoder_layer,
+        n_encoder_layers=n_encoder_layers,
+        n_decoder_layers=n_decoder_layers,
         n_heads=n_heads,
         n_iterative=n_iterative,
         embedder_arch="linear",

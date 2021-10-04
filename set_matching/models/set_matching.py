@@ -9,8 +9,8 @@ class SetMatching(nn.Module):
     def __init__(
         self,
         n_units,
-        n_encoder_layer=1,
-        n_decoder_layer=1,
+        n_encoder_layers=1,
+        n_decoder_layers=1,
         n_heads=8,
         n_iterative=2,
         enc_apply_ln=True,
@@ -27,12 +27,12 @@ class SetMatching(nn.Module):
         self.layers = []
         for i in range(0, n_iterative):
             name = f"enc_{i}"
-            layer = SetEncoder(n_units, n_layers=n_encoder_layer, n_heads=n_heads, apply_ln=enc_apply_ln)
+            layer = SetEncoder(n_units, n_layers=n_encoder_layers, n_heads=n_heads, apply_ln=enc_apply_ln)
             setattr(self, name, layer)
             name = f"dec_{i}"
             layer = StackedCrossSetDecoder(
                 n_units,
-                n_layers=n_decoder_layer,
+                n_layers=n_decoder_layers,
                 n_heads=n_heads,
                 component=dec_component,
                 activation_fn="relu",
