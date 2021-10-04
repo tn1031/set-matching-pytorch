@@ -1,7 +1,7 @@
 name: set_matching  # don't change
 n_units: 512
-n_encoder_layer: 1
-n_decoder_layer: 1
+n_encoder_layers: 1
+n_decoder_layers: 1
 n_heads: 8
 n_iterative: 2
 enc_apply_ln: true
