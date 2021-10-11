@@ -36,7 +36,7 @@ class SetPrediction(nn.Module):
         xx_mask = make_attn_mask(x_mask, x_mask)
         yx_mask = make_attn_mask(y_mask, x_mask)
 
-        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
+        x = self.embedder(x.reshape((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_inputs, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
 
         z = self.encoder(x, xx_mask)
@@ -49,7 +49,7 @@ class SetPrediction(nn.Module):
             .reshape((batch * n_slots, self.n_units))
         )
 
-        true_y = self.embedder(y.view((-1,) + y.shape[2:]))
+        true_y = self.embedder(y.reshape((-1,) + y.shape[2:]))
 
         y_mask = y_mask.reshape((batch * n_slots,))
         pred_y = pred_y[y_mask]
@@ -64,7 +64,7 @@ class SetPrediction(nn.Module):
         xx_mask = make_attn_mask(x_mask, x_mask)
         yx_mask = make_attn_mask(y_mask, x_mask)
 
-        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
+        x = self.embedder(x.reshape((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_items, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
 
         z = self.encoder(x, xx_mask)

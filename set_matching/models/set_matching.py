@@ -52,7 +52,7 @@ class SetMatching(nn.Module):
 
     def embed_reshape_transpose(self, x):
         batch, n_items = x.shape[:2]
-        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
+        x = self.embedder(x.reshape((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_items, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
         return x
 
