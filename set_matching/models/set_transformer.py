@@ -41,7 +41,7 @@ class SetTransformer(nn.Module):
         yx_mask = make_attn_mask(y_mask, x_mask)
         yy_mask = make_attn_mask(y_mask, y_mask)
 
-        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
+        x = self.embedder(x.reshape((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_items, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
 
         z = self.encoder(x, xx_mask)
@@ -63,7 +63,7 @@ class SetTransformer(nn.Module):
         yx_mask = make_attn_mask(y_mask, x_mask)
         yy_mask = make_attn_mask(y_mask, y_mask)
 
-        x = self.embedder(x.view((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
+        x = self.embedder(x.reshape((-1,) + x.shape[2:]))  # (batch*n_items, n_units)
         x = x.reshape(batch, n_items, self.n_units).permute(0, 2, 1)  # (batch, n_units, n_items)
 
         z = self.encoder(x, xx_mask)
