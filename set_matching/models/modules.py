@@ -47,12 +47,13 @@ class ConvolutionSentence(nn.Conv2d):
 
 
 class FeedForwardLayer(nn.Module):
-    def __init__(self, n_units):
+    def __init__(self, n_units, n_out_units=None):
         super(FeedForwardLayer, self).__init__()
         n_inner_units = n_units * 4
+        n_out_units = n_units if n_out_units is None else n_out_units
         self.w_1 = ConvolutionSentence(n_units, n_inner_units, bias=True)
         self.leaky_relu = nn.LeakyReLU(0.2)
-        self.w_2 = ConvolutionSentence(n_inner_units, n_units, bias=True)
+        self.w_2 = ConvolutionSentence(n_inner_units, n_out_units, bias=True)
 
     def __call__(self, e):
         e = self.w_1(e)
@@ -328,11 +329,12 @@ class ISAB(nn.Module):
     def __init__(self, n_units, n_heads=8, m=16):
         super(ISAB, self).__init__()
         self.paramI = nn.Parameter(torch.rand(n_units, m))
-        self.self_attention_1 = MultiHeadAttention(n_units, n_heads, self_attention=False)
+        nn.init.xavier_uniform_(self.paramI)
+        self.self_attention_1 = MultiHeadAttention(n_units, n_heads, self_attention=False, activation_fn="softmax")
         self.feed_forward_1 = FeedForwardLayer(n_units)
         self.ln_1_1 = LayerNormalizationSentence(n_units, eps=1e-6)
         self.ln_1_2 = LayerNormalizationSentence(n_units, eps=1e-6)
-        self.self_attention_2 = MultiHeadAttention(n_units, n_heads, self_attention=False)
+        self.self_attention_2 = MultiHeadAttention(n_units, n_heads, self_attention=False, activation_fn="softmax")
         self.feed_forward_2 = FeedForwardLayer(n_units)
         self.ln_2_1 = LayerNormalizationSentence(n_units, eps=1e-6)
         self.ln_2_2 = LayerNormalizationSentence(n_units, eps=1e-6)
@@ -340,8 +342,8 @@ class ISAB(nn.Module):
 
     def forward(self, x, ix_mask, xi_mask):
         """
-        ISAB(X) = MAB(X, H) \in R^{n \times d}
-        where H = MAB(I, X) \ in R^{m \times d}
+        ISAB(X) = MAB(X, H) in R^{n \times d}
+        where H = MAB(I, X) in R^{m \times d}
         MAB(u, v) = LayerNorm(H + rFF(H))
         where H = LayerNorm(u + Multihead(u, v, v))
         """

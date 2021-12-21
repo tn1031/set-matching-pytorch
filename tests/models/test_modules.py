@@ -83,6 +83,23 @@ def test_feed_forward_layer():
     _y = torch.cat([_x.sum(dim=1, keepdim=True)] * n_units, dim=1)
     assert torch.all(torch.isclose(y, _y, atol=1e-6))
 
+    n_out_units = 128
+    m = FeedForwardLayer(n_units, n_out_units)
+    torch.nn.init.ones_(m.w_1.weight)
+    torch.nn.init.zeros_(m.w_1.bias)
+    torch.nn.init.ones_(m.w_2.weight)
+    torch.nn.init.zeros_(m.w_2.bias)
+    m.eval()
+
+    batchsize, sentence_length = 2, 8
+    x = -torch.abs(torch.rand(batchsize, n_units, sentence_length))
+    y = m(x)
+    assert y.shape == (batchsize, n_out_units, sentence_length)
+    _x = torch.cat([x.sum(dim=1, keepdim=True)] * n_units * 4, dim=1)
+    _x = torch.where(_x < 0, 0.2 * _x, _x)
+    _y = torch.cat([_x.sum(dim=1, keepdim=True)] * n_out_units, dim=1)
+    assert torch.all(torch.isclose(y, _y, atol=1e-6))
+
 
 def test_multiead_softmax_self_attention():
     n_units = 128
