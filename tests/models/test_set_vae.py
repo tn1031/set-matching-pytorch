@@ -1,29 +1,6 @@
 import torch
-from set_matching.models.helper import get_mask, sample_mask
 from set_matching.models.modules import make_attn_mask
 from set_matching.models.set_vae import DecoderBlock, EncoderBlock, GaussianMixture, SetVAE
-
-
-def test_get_mask():
-    cardinality = torch.tensor([3, 4, 5])
-    max_size = 6
-
-    mask = torch.tensor(
-        [
-            [True, True, True, False, False, False],
-            [True, True, True, True, False, False],
-            [True, True, True, True, True, False],
-        ]
-    )
-
-    assert torch.all(get_mask(cardinality, max_size) == mask)
-
-
-def test_sample_mask():
-    cardinality = torch.tensor([3, 4, 5])
-    max_size = 6
-
-    assert torch.all(sample_mask(cardinality, max_size).sum(1) <= cardinality)
 
 
 def test_gaussian_mixture():
@@ -110,12 +87,11 @@ def test_decoder_block():
 
 def test_set_vae():
     n_units = 64
-    dim_hidden = 128
     n_heads = 8
     z_length = [2, 4, 8]
     dim_z0 = 16
     n_mixtures = 16
-    m = SetVAE(n_units, dim_hidden, n_heads, z_length, dim_z0, n_mixtures)
+    m = SetVAE(n_units, n_heads, z_length, dim_z0, n_mixtures)
     m.eval()
 
     batchsize, sentence_length = 2, 8

@@ -35,3 +35,14 @@ class ChamferLoss(nn.Module):
 
     def forward(self, x, y, mask):
         return chamfer_loss(x, y, mask)
+
+
+class HierarchicalKLLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, params):
+        loss = 0
+        for param in params:
+            loss += kl_loss(*param)
+        return loss.mean()

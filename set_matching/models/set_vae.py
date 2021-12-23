@@ -1,15 +1,16 @@
-from math import sqrt
-
 import torch
 import torch.distributions as D
 import torch.nn as nn
 import torch.nn.functional as F
 
-from set_matching.models.cnn import CNN
-from set_matching.models.helper import get_mixture_parameters
-from set_matching.models.modules import ISAB, FeedForwardLayer, MultiHeadAttention, make_attn_mask
+from set_matching.models.modules import ISAB, FeedForwardLayer, make_attn_mask
 
 PADDING_IDX = 0
+
+# An implementation of SetVAE
+# https://arxiv.org/abs/2103.15619
+# Some modules are based on the following.
+# https://github.com/jw9730/setvae
 
 
 class GaussianMixture(nn.Module):
@@ -19,23 +20,19 @@ class GaussianMixture(nn.Module):
         self.n_mixtures = n_mixtures
         self.is_train = is_train
         self.tau = 1.0
-        self.register = self.register_parameter if is_train else self.register_buffer
+        register = self.register_parameter if is_train else self.register_buffer
 
-        fixed_gmm = False
         if n_mixtures == 1:
-            self.register("mu", nn.Parameter(torch.randn(1, 1, dim_z0)))  # [1, 1, Ds]
-            self.register("ln_var", nn.Parameter(torch.randn(1, 1, dim_z0)))  # [1, 1, Ds]
+            register("mu", nn.Parameter(torch.randn(1, 1, dim_z0)))
+            register("ln_var", nn.Parameter(torch.randn(1, 1, dim_z0)))
             nn.init.xavier_uniform_(self.mu)
             nn.init.xavier_uniform_(self.ln_var)
-        elif fixed_gmm:
-            logits, mu, sig = get_mixture_parameters(n_mixtures, dim_z0)
-            self.register("logits", nn.Parameter(logits))
-            self.register("mu", nn.Parameter(mu))
-            self.register("sigma", nn.Parameter(sig))
         else:
-            self.register("logits", nn.Parameter(torch.ones(n_mixtures)))
-            self.register("mu", nn.Parameter(torch.randn(n_mixtures, dim_z0)))
-            self.register("sigma", nn.Parameter(torch.randn(n_mixtures, dim_z0).abs() / sqrt(n_mixtures)))
+            register("logits", nn.Parameter(torch.ones(n_mixtures)))
+            register("mu", nn.Parameter(torch.randn(n_mixtures, dim_z0)))
+            register("ln_var", nn.Parameter(torch.randn(n_mixtures, dim_z0)))
+            nn.init.xavier_uniform_(self.mu)
+            nn.init.xavier_uniform_(self.ln_var)
         self.output_layer = nn.Linear(dim_z0, dim_output)
 
     def forward(self, mask):
@@ -51,21 +48,21 @@ class GaussianMixture(nn.Module):
         else:
             if self.is_train:
                 logits = self.logits.reshape([1, 1, self.n_mixtures]).repeat(batchsize, max_length, 1)
-                onehot = F.gumbel_softmax(logits, tau=self.tau, hard=True).unsqueeze(-1)
-                assert onehot.shape == (batchsize, max_length, self.n_mixtures, 1)
+                component_id_onehot = F.gumbel_softmax(logits, tau=self.tau, hard=True).unsqueeze(-1)
+                # assert onehot.shape == (batchsize, max_length, self.n_mixtures, 1)
 
                 mu = self.mu.reshape([1, 1, self.n_mixtures, self.dim_z0])
-                sigma = self.sigma.reshape([1, 1, self.n_mixtures, self.dim_z0])
-                mu = (mu * onehot).sum(dim=2)
-                sigma = (sigma * onehot).sum(dim=2)
-                z0 = mu + sigma * eps
+                ln_var = self.ln_var.reshape([1, 1, self.n_mixtures, self.dim_z0])
+                mu = (mu * component_id_onehot).sum(dim=2)
+                ln_var = (ln_var * component_id_onehot).sum(dim=2)
+                z0 = mu + ln_var.exp() * eps
             else:
                 mix = D.Categorical(self.logits)
-                comp = D.Independent(D.Normal(self.mu, self.sigma), 1)
-                mixture = D.MixtureSameFamily(mix, comp)
+                component = D.Independent(D.Normal(self.mu, self.ln_var.exp()), 1)
+                mixture = D.MixtureSameFamily(mix, component)
                 z0 = mixture.sample((batchsize, max_length))
 
-        assert z0.shape == (batchsize, max_length, self.dim_z0)
+        # assert z0.shape == (batchsize, max_length, self.dim_z0)
         return self.output_layer(z0).permute(0, 2, 1)
 
 
@@ -140,7 +137,7 @@ class DecoderBlock(ISAB):
 
     def compute_posterior(self, mu, ln_var, h_enc, h_abl=None):
         # eq. (20)
-        batch, n_units, len_z = h_enc.shape
+        _, n_units, _ = h_enc.shape
         chunk_size = n_units
         h = h_enc + h_abl if h_abl is not None else h_enc
         posterior = self.posterior(h)
@@ -154,22 +151,16 @@ class SetVAE(nn.Module):
     def __init__(
         self,
         n_units,
-        dim_hidden=128,
         n_heads=8,
         z_length=[2, 4, 8],
         dim_z0=16,
         n_mixtures=16,
-        embedder_arch="resnet18",
-        disable_cnn_update=False,
     ):
         super(SetVAE, self).__init__()
         self.n_units = n_units
         self.n_layers = len(z_length)
         self.z_length = z_length
-        # self.input_layer = nn.Linear(dim_input, dim_hidden)
         self.gmm = GaussianMixture(dim_z0, n_units, n_mixtures, False)
-        # self.pre_encoder = FeedForwardLayer(dim_hidden)
-        # self.pre_decoder = FeedForwardLayer(dim_hidden)
 
         enc_len_x = list(reversed(z_length))
         dec_len_x = z_length
@@ -218,18 +209,11 @@ class SetVAE(nn.Module):
         return z_prev, z_params
 
     def forward(self, x, x_mask):
-        batch_size, n_units, len_x = x.shape
-        # input layer
-        # pre encoder
         h_enc = self.encode(x, x_mask)
         # for h, l in zip(h_enc, list(reversed(self.z_length))):
         #    assert h.shape == (batch_size, n_units, l)
         z0 = self.sample_z0(x_mask)
         # assert z0.shape == (batch_size, n_units, len_x)
-        # pre decoder
         x_hat, params = self.decode(z0, x_mask, list(reversed(h_enc)))
         # assert x_hat.shape == (batch_size, n_units, len_x)
-        # post decoder
-        # output layer
-        # .postprocess
         return x_hat, params

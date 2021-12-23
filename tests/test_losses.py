@@ -45,7 +45,3 @@ def test_kl_loss():
 
     loss = kl_loss(x, y, dx, dy)
     assert loss.shape[0] == batchsize
-
-
-if __name__ == "__main__":
-    test_chamfer_loss()
