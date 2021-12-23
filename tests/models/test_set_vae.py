@@ -122,7 +122,3 @@ def test_set_vae():
         for pl, ppl in zip(p, pp):
             assert pl.shape == (batchsize, n_units, l)
             assert torch.all(torch.isclose(pl, ppl, atol=1e-6))
-
-
-if __name__ == "__main__":
-    test_set_vae()
