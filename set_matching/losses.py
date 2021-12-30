@@ -30,7 +30,7 @@ def chamfer_loss(x, y, mask):
 
 
 class ChamferLoss(nn.Module):
-    def __init__(self, reduce):
+    def __init__(self, reduce=True):
         super().__init__()
         self._reduce = reduce
 
@@ -43,7 +43,7 @@ class ChamferLoss(nn.Module):
 
 
 class HierarchicalKLLoss(nn.Module):
-    def __init__(self, reduce):
+    def __init__(self, reduce=True):
         super().__init__()
         self._reduce = reduce
 
