@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from set_matching.losses import chamfer_loss, kl_loss
+from set_matching.losses import ChamferLoss, HierarchicalKLLoss, chamfer_loss, kl_loss
 from sklearn.neighbors import NearestNeighbors
 
 
@@ -13,7 +13,7 @@ def np_chamfer_distance(x, y, metric="l2"):
     return chamfer_dist
 
 
-def test_chamfer_loss():
+def test_chamfer_loss_fn():
     batchsize, n_units, sentence_length = 3, 32, 6
     x = torch.rand(batchsize, n_units, sentence_length)
     y = torch.rand(batchsize, n_units, sentence_length)
@@ -33,10 +33,33 @@ def test_chamfer_loss():
     for _x, _y, _m in zip(x, y, mask):
         dist += np_chamfer_distance(_x[_m, :], _y[_m, :])
 
-    assert np.isclose(loss.numpy().item(), dist / batchsize)
+    assert np.isclose(loss.numpy().mean(), dist / batchsize)
 
 
-def test_kl_loss():
+def test_chamfer_loss():
+    batchsize, n_units, sentence_length = 3, 32, 6
+    x = torch.rand(batchsize, n_units, sentence_length)
+    y = torch.rand(batchsize, n_units, sentence_length)
+    mask = torch.tensor(
+        [
+            [True, True, True, False, False, False],
+            [True, True, True, True, False, False],
+            [True, True, True, True, True, False],
+        ]
+    )
+
+    m = ChamferLoss(reduce=True)
+    m.eval()
+
+    assert m(x, y, mask).shape == ()  # means zero-dimentional tensor
+
+    m = ChamferLoss(reduce=False)
+    m.eval()
+
+    assert m(x, y, mask).shape == (batchsize,)
+
+
+def test_kl_loss_fn():
     batchsize, n_units, sentence_length = 3, 32, 6
     x = torch.rand(batchsize, n_units, sentence_length)
     y = torch.rand(batchsize, n_units, sentence_length)
@@ -45,3 +68,22 @@ def test_kl_loss():
 
     loss = kl_loss(x, y, dx, dy)
     assert loss.shape[0] == batchsize
+
+
+def test_kl_loss():
+    n_layers = 4
+    batchsize, n_units, sentence_length = 3, 32, 6
+    x = torch.rand(batchsize, n_units, sentence_length)
+    y = torch.rand(batchsize, n_units, sentence_length)
+    dx = torch.rand(batchsize, n_units, sentence_length)
+    dy = torch.rand(batchsize, n_units, sentence_length)
+
+    m = HierarchicalKLLoss(reduce=True)
+    m.eval()
+
+    assert m([(x, y, dx, dy)] * n_layers).shape == ()  # means zero-dimentional tensor
+
+    m = HierarchicalKLLoss(reduce=False)
+    m.eval()
+
+    assert m([(x, y, dx, dy)] * n_layers).shape == (batchsize,)
