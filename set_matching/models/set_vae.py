@@ -187,8 +187,10 @@ class SetVAE(nn.Module):
         z0 = self.gmm(mask)
         return z0
 
-    def decode(self, z, z_mask, h_enc_list):
+    def decode(self, z, z_mask, h_enc_list, intermediate_features=False):
         batchsize = len(z)
+        if intermediate_features:
+            features = {"h_enc": [], "h_dec": [], "z": []}
 
         z_params = []
         z_prev = z
@@ -206,7 +208,15 @@ class SetVAE(nn.Module):
             z_params.append((mu, ln_var, delta_mu, delta_ln_var))
             z_prev = z_next
 
-        return z_prev, z_params
+            if intermediate_features:
+                features["h_enc"].append(h_enc)
+                features["h_dec"].append(h)
+                features["z"].append(z)
+
+        if intermediate_features:
+            return z_prev, z_params, features
+        else:
+            return z_prev, z_params
 
     def forward(self, x, x_mask):
         h_enc = self.encode(x, x_mask)
@@ -217,3 +227,15 @@ class SetVAE(nn.Module):
         x_hat, params = self.decode(z0, x_mask, list(reversed(h_enc)))
         # assert x_hat.shape == (batch_size, n_units, len_x)
         return x_hat, params
+
+    def intermediate_features(self, x, x_mask):
+        h_enc = self.encode(x, x_mask)
+        z0 = self.sample_z0(x_mask)
+        x_hat, params, features = self.decode(z0, x_mask, list(reversed(h_enc)), intermediate_features=True)
+        features["z0"] = z0
+        prior_mu, prior_ln_var, posterior_mu, posterior_ln_var = zip(*params)
+        features["prior_mu"] = prior_mu
+        features["prior_ln_var"] = prior_ln_var
+        features["posterior_mu"] = posterior_mu
+        features["posterior_ln_var"] = posterior_ln_var
+        return x_hat, features
