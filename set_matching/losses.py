@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -24,25 +25,33 @@ def chamfer_loss(x, y, mask):
         l2 = (_x - _y).pow(2).sum(dim=-1)
         x_dist = l2.min(dim=0)[0].sum()
         y_dist = l2.min(dim=1)[0].sum()
-        dist.append(x_dist + y_dist)
-    loss = sum(dist) / len(dist)
-    return loss
+        dist.append((x_dist + y_dist).view(1))
+    return torch.cat(dist)
 
 
 class ChamferLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, reduce=True):
         super().__init__()
+        self._reduce = reduce
 
     def forward(self, x, y, mask):
-        return chamfer_loss(x, y, mask)
+        dist = chamfer_loss(x, y, mask)
+        if self._reduce:
+            return dist.mean(0)
+        else:
+            return dist
 
 
 class HierarchicalKLLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, reduce=True):
         super().__init__()
+        self._reduce = reduce
 
     def forward(self, params):
         loss = 0
         for param in params:
             loss += kl_loss(*param)
-        return loss.mean()
+        if self._reduce:
+            return loss.mean(0)
+        else:
+            return loss
