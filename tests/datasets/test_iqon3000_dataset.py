@@ -10,7 +10,7 @@ def test_popone_dataset(data_dir):
     if data_dir is None:
         pytest.skip("there is no testdata.")
 
-    root = pathlib.Path(".")
+    root = pathlib.Path(data_dir)
     data = json.load(open(pathlib.Path(data_dir) / "IQON3000_valid.json"))
     max_set_size = 7
     dataset = PopOneDataset(data, root, "resnet18", max_set_size=max_set_size, is_train=True)
@@ -28,7 +28,7 @@ def test_fitb_dataset(data_dir):
     if data_dir is None:
         pytest.skip("there is no testdata.")
 
-    root = pathlib.Path(".")
+    root = pathlib.Path(data_dir)
     data = json.load(open(pathlib.Path(data_dir) / "IQON3000_test_fitb.json"))
     max_set_size = 8
     data = [s for s in data if len(s["question"]) <= max_set_size]
@@ -52,7 +52,7 @@ def test_split_dataset(data_dir):
     if data_dir is None:
         pytest.skip("there is no testdata.")
 
-    root = pathlib.Path(".")
+    root = pathlib.Path(data_dir)
     data = json.load(open(pathlib.Path(data_dir) / "IQON3000_valid.json"))
     max_set_size = 6
     dataset = SplitDataset(data, root, n_mix=1, cnn_arch="resnet18", max_set_size=max_set_size, is_train=True)
@@ -85,7 +85,7 @@ def test_finbs_dataset(data_dir):
     if data_dir is None:
         pytest.skip("there is no testdata.")
 
-    root = pathlib.Path(".")
+    root = pathlib.Path(data_dir)
     data = json.load(open(pathlib.Path(data_dir) / "IQON3000_test_finbs.json"))
     max_set_size_query, max_set_size_answer = 8, 2
 
