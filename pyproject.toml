@@ -8,7 +8,7 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.7"
 numpy = "^1.21.1"
-Pillow = ">=9.0.0"
+Pillow = ">=9.0.1"
 hydra-core = "^1.1.0"
 scikit-learn = "^0.24.2"
 tensorboardX = "^2.4"
